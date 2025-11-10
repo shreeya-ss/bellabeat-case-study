@@ -1,0 +1,211 @@
+---
+title: "Bellabeat Case Study"
+author: "Shreeya Surabhi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+# A. Company Overview  
+Bellabeat is a female wellness technology product-focused company that offers a wellness app as well as 3 innovative products. The app gives users health information on their menstrual cycle, activity, sleep, stress, and mindfulness practices. Users are able to make healthier decisions by using this data to better understand their daily habits. The app is simultaneously connected to all the products below as well: 
+
+1. **Leaf** (wellness tracker) is available in a few different forms, sucj as a bracelet, necklace, or clip. Leaf tracker links to the Bellabeat app to monitor various activity. 
+2. **Spring** is a water bottle that uses clever technology to track  daily water intake to stay well hydrated all day. The Bellabeat app is used for Spring to notify people of daily hydration levels. 
+3. **Time** is a wellness watch tracks user activity, sleep, and stress by fusing smart technology with a classy styled watch. Everyday wellness insights are given through connecting the Time watch to the Bellabeat app.
+
+**Stakeholders**
+
+1. Urska Srsen: Co-Founder/Chief Creative Officer of Bellabeat.
+2. Sando Mur: Co-Founder/Mathematician/Key executive of Bellabeat.
+3. Bellabeat Marketing Analytics Team.
+
+# B. Business Task
+In order to maximize their marketing approach for the Bellabeat Time wellness watch, Bellabeat wants to know how people utilize smart gadgets.
+My task as a data analyst is to examine smart device usage data in order to identify patterns and suggest tactical measures for Bellabeat's marketing team.  
+
+**Key Questions:**
+
+- What are some trends observed in smart device usage?  
+- How can these trends apply to Bellabeat's customers to make business decisions?  
+- How can Bellabeat use these trends in their marketing strategy?
+
+---
+
+# C. Prepare
+
+**Data Source:**  
+FitBit Fitness Tracker Dataset (Kaggle).  
+It includes daily activity, sleep, and steps for 30 users.
+
+**Limitations:**  
+
+- Small sample number (30 users)  
+- May not be able to reflect **current** device usage habits (data from 2016)
+- Mix of male and female users (not fully representative of Bellabeat’s female-focused target market)
+
+---
+
+# D. Process: Cleaning and Import
+
+## 1. Load the libraries
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+```
+
+## 2. Import the data in files
+```{r import_data, message=FALSE, warning=FALSE}
+daily_activity <- read_csv("Data/Raw/dailyActivity_merged.csv")
+sleep_data <- read_csv("Data/Raw/sleepDay_merged.csv")
+```
+
+## 3. Clean data and make sure it's unique
+```{r clean_data, message=FALSE, warning=FALSE}
+daily_activity_clean <- daily_activity %>%
+distinct() %>%
+mutate(ActivityDate = mdy(ActivityDate))
+
+sleep_data_clean <- sleep_data %>%
+distinct() %>%
+mutate(SleepDay = mdy_hms(SleepDay),
+TotalSleepHours = TotalMinutesAsleep / 60)
+```
+
+## 4. Save cleaned data and summaries
+```{r save_cleaned, message=FALSE, warning=FALSE}
+write_csv(daily_activity_clean, "Data/Cleaned/daily_activity_clean.csv")
+write_csv(sleep_data_clean, "Data/Cleaned/sleep_data_clean.csv")
+```
+
+## 5. Summary tables that include mean values
+```{r summary_tables, message=FALSE, warning=FALSE}
+avg_steps <- daily_activity_clean %>%
+  group_by(Id) %>%
+  summarise(
+    AvgSteps = mean(TotalSteps, na.rm = TRUE),
+    AvgDistance = mean(TotalDistance, na.rm = TRUE),
+    AvgCalories = mean(Calories, na.rm = TRUE)
+  )
+
+avg_sleep <- sleep_data_clean %>%
+  group_by(Id) %>%
+  summarise(AvgSleepHours = mean(TotalSleepHours, na.rm = TRUE))
+
+user_summary <- avg_steps %>%
+  left_join(avg_sleep, by = "Id")
+```
+
+## 6. Observe corellation between the average steps and the sleep hours
+```{r correlation, message=FALSE, warning=FALSE}
+step_sleep_cor <- cor(user_summary$AvgSteps, user_summary$AvgSleepHours, use = "complete.obs")
+step_sleep_cor
+```
+
+**Key Findings:**
+
+- Most users average about `r round(mean(user_summary$AvgSteps, na.rm = TRUE))` steps per day.
+- The average sleep duration is about `r round(mean(user_summary$AvgSleepHours, na.rm = TRUE), 1)` hours per night.
+- There is a correlation of `r round(step_sleep_cor, 2)` between steps and sleep—higher activity seems to be associated with more sleep.
+
+## 7. Visualizations 
+
+**Average Daily Steps per User**
+```{r avg_steps_plot, echo=TRUE, message=FALSE, warning=FALSE}
+steps_plot <- ggplot(user_summary, aes(x = reorder(factor(Id), -AvgSteps), y = AvgSteps)) +
+  geom_bar(stat = "identity", fill = "#4682B4") +
+  theme_minimal(base_size = 12) +
+  labs(title = "Average Daily Steps per User", x = "User ID", y = "Average Steps") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+steps_plot
+ggsave("Visuals/avg_steps_plot.png", steps_plot, width = 8, height = 5)
+```
+Insights:
+The average daily steps taken by users vary as some users tend to walk more than others.
+Some users have higher step counts which creates higher engagement and an active lifestyle.
+Challenges and reminders are able to remind people to transition to a more active lifestyle as most users have a moderate step range.
+Customized goal-setting is key as seen through the varying activity level per user.
+
+**Steps vs Sleep Hours**
+```{r steps_vs_sleep_plot, message=FALSE, warning=FALSE}
+scatter_plot <- ggplot(user_summary, aes(x = AvgSteps, y = AvgSleepHours)) +
+  geom_point(color = "#2E8B57", size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE, color = "gray40", linetype = "dashed") +
+  theme_minimal(base_size = 12) +
+  labs(title = "Steps vs Sleep Hours", x = "Average Steps", y = "Average Sleep Hours")
+scatter_plot
+ggsave("Visuals/steps_vs_sleep.png", scatter_plot, width = 8, height = 5)
+```
+Insights:
+There is a positive relation between steps and amount of sleep. The upward association is confirmed by the dotted regression line, indicating that more daily movement promotes longer/higher-quality sleep.
+Other lifestyle factors are also correlated to a good nights sleep, as a few users have quality rest, but a lower step count.
+
+**User Activity Patterns**
+```{r activity_patterns, message=FALSE, warning=FALSE}
+daily_activity_clean %>%
+  mutate(Weekday = weekdays(ActivityDate)) %>%
+  group_by(Weekday) %>%
+  summarise(AvgSteps = mean(TotalSteps, na.rm = TRUE)) %>%
+  ggplot(aes(x = reorder(Weekday, AvgSteps), y = AvgSteps, fill = Weekday)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  theme_minimal(base_size = 12) +
+  labs(
+    title = "Average Steps by Weekday",
+    x = "Day of Week",
+    y = "Average Steps"
+  )
+```
+Insights:
+As seen, the weekdays are when users are most active, especially in the middle of the week (Tuesday–Thursday). On the other hand, Sunday most often seems to be a rest day for most users. Scheduling reminders on these specific days would be beneficial for a motivational push and increase daily activity. Start of the week push notifications would be able to motivate users throughout the week using these trends, but also continue to encourage Sunday rest days. 
+
+**Device Use and Engagement**
+```{r device_usage, message=FALSE, warning=FALSE}
+daily_activity_clean %>%
+  ggplot(aes(x = TotalDistance, y = Calories, color = TotalSteps)) +
+  geom_point(alpha = 0.6) +
+  theme_minimal(base_size = 12) +
+  labs(
+    title = "Calories Burned vs Distance Traveled",
+    x = "Total Distance (miles)",
+    y = "Calories Burned",
+    color = "Steps"
+  )
+```
+Insights:
+There is a substantial correlation between burning calories and taking more steps or walking further distances. High step users are also high calorie users. 
+In product messaging, Bellabeat would benefit from highlighting this "energy-burn efficiency" and highlight how activity data can monitor observable outcomes. Bellabeat can also create visuals showcasing the correlation between steps, distance and calories for visual reference. Users with higher distance and calorie count would benefit with advanced wellness reccomendations.
+
+## 8. Summary of the stats
+```{r summary_stats, message=FALSE, warning=FALSE}
+summary_stats <- user_summary %>%
+  summarise(
+    MeanSteps = mean(AvgSteps, na.rm = TRUE),
+    MeanSleep = mean(AvgSleepHours, na.rm = TRUE),
+    Correlation = cor(AvgSteps, AvgSleepHours, use = "complete.obs")
+  )
+summary_stats
+```
+
+**Actionable Insights:**
+
+- **Users with greater daily step counts also tend to sleep more.** This suggests a chance for Bellabeat to promote its Time watch as a tool to help people sleep better and be more active.
+- **Average daily activity and sleep patterns** implies that Bellabeat should focus its marketing on developing comprehensive wellness routines, highlighting the benefits of time for both rest and activity.
+- **Visual storytelling** in Bellabeat’s marketing (such as the charts above) could demonstrate improvements in wellness from using smart devices.
+- **Users are active midweek the most**, while Sundays and Mondays show the least activity levels. The energy cycles showcase the best timings for push notifications and challenges.
+- **High calories are burned when there is moderate distance** as well, which shows a chance to send more advanced, personalized challenges. 
+
+**Recommendations for Bellabeat’s Marketing Team:**
+
+1. Schedule advertising efforts for mornings or times of day when consumers are more likely to be concerned for their health (e.g., beginning of the week).
+2. Highlight the Time watch's special dual-benefit features (activity and sleep tracking).
+3. Take into account challenges or material in the Bellabeat app that motivate users to increase their sleep duration and step count.
+4. Push more motivational campaigns for "rest days" (Sundays and Mondays) for activity increase.
+5. Using trends that depict calorie vs distance trends in marketing to help understand the benefits of energy usage through visuals.
+6. Personalized messages/dashboards that present users' activity levels, sleep, and calories compared to all other users. 
+
+**This case study demonstrates how I define business problems, prepare data, analyze it, visualize it, and provide practical business advice. I cleaned up real-world fitness data using R and Tidyverse to find marketing-relevant trends.**
+**The data backs up the idea that Bellabeat's Time watch may be marketed as a comprehensive wellness tool that helps users sleep better, walk more, and have a clearer understanding of their daily routines. Bellabeat can boost engagement and enhance user satisfaction with targeted marketing that is adapted to user behavior patterns.**
+
+## 9. References
+
+- FitBit Fitness Tracker Dataset.https://www.kaggle.com/arashnic/fitbit
+-tidyverse: Wickham et al. (2019). https://www.tidyverse.org/
