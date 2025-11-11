@@ -35,10 +35,10 @@ FitBit Fitness Tracker Dataset from Kaggle.
 ## 9. References
 
 - FitBit Fitness Tracker Dataset.https://www.kaggle.com/arashnic/fitbit
--tidyverse: Wickham et al. (2019). https://www.tidyverse.org/
+- tidyverse: Wickham et al. (2019). https://www.tidyverse.org/
 
 ## View the Full Report Online:
 
-- [Bellabeat Case Study Report]()
+- [Bellabeat Case Study Report](https://shreeya-ss.github.io/bellabeat-case-study/)
   
 
